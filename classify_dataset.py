@@ -22,6 +22,8 @@ time_clear = 4
 timeWaitForNewChar = 1
 time_in = time.time()
 time_previous_char_first = 0
+time_del = 0
+timeWaitDel = 1
 prediction_char = None
 
 def hot_key_break():
@@ -31,7 +33,7 @@ def hot_key_break():
 
 def showPredictionPhrase() :
     phrase_text = ''.join(predicted_phrase)
-    cv2.rectangle(frame_rgb_flip, (10, 10), (10 + len(phrase_text) * 20, 50), (0, 0, 0), -1)
+    cv2.rectangle(frame_rgb_flip, (10, 10), (20 + len(phrase_text) * 20, 50), (0, 0, 0), -1)
     cv2.putText(frame_rgb_flip, phrase_text, (15, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
 def deleteChar() :
@@ -94,19 +96,26 @@ while True:
         if len(prediction_char) > 0:
             prediction_char = prediction_char[0]
 
+        #Check if the predicted character is del that pops the last character
+        if (prediction_char == 'del') : 
+            if (time.time() - time_del) > timeWaitDel:
+                deleteChar()
+                time_del = time.time()
+            previous_char = prediction_char
+            time_previous_char_first = time.time()
+
         # Check if the predicted character is different from the previous one
-        if ((previous_char != prediction_char) or (previous_char is None)) :   
+        elif ((previous_char != prediction_char) or (previous_char is None)) :   
             
             time_current_char = time.time()
-            print(time_current_char - time_previous_char_first)
             if (time_current_char - time_previous_char_first) > timeWaitForNewChar:
                 previous_char = prediction_char
                 if (prediction_char == 'space') : prediction_char = ' ' #Check if the prediction_char is space
+                predicted_phrase.append(prediction_char)
+            
+        elif (previous_char == prediction_char) :
+            time_previous_char_first = time.time()
 
-                if (prediction_char == 'del') : #Check if the prediction_char is delete
-                    deleteChar()
-                else : predicted_phrase.append(prediction_char)
-          
         # Display the predicted character on the frame
         cv2.putText(frame_rgb_flip, prediction_char, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
