@@ -13,7 +13,7 @@ mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
-hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.5)
+hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.5, max_num_hands = 1)
 
 expected_features = 84
 
@@ -25,6 +25,7 @@ time_previous_char_first = 0
 time_del = 0
 timeWaitDel = 1
 prediction_char = None
+isDeleteChar = False
 
 def hot_key_break():
     if cv2.waitKey(10) & 0xFF == 27:  # Press 'Esc' to exit
@@ -38,7 +39,7 @@ def showPredictionPhrase() :
 
 def deleteChar() :
     if len(predicted_phrase) > 0:
-        predicted_phrase.pop()
+        predicted_phrase.pop()   
 
 predicted_phrase = []
 
@@ -93,48 +94,67 @@ while True:
             data_aux = data_aux[:expected_features]
 
         prediction_char = model.predict([np.array(data_aux)])
+        prediction_prob = model.predict_proba([np.array(data_aux)])
         if len(prediction_char) > 0:
             prediction_char = prediction_char[0]
 
-        #Check if the predicted character is del that pops the last character
-        if (prediction_char == 'del') : 
-            if (time.time() - time_del) > timeWaitDel:
-                deleteChar()
-                time_del = time.time()
-            previous_char = prediction_char
-            time_previous_char_first = time.time()
+            max_prob_index = np.argmax(prediction_prob)
+            # print(f"Max Prob Index: {max_prob_index}")
+            posibilities = prediction_prob[0][max_prob_index];
+            posibilities = np.round(posibilities, 4)
+            # print(f"Max Prob: {posibilities}")
+            posibilities = f"{posibilities * 100:.2f}"
+            # print(f"Posibilities: {posibilities}")
 
-        # Check if the predicted character is different from the previous one
-        elif ((previous_char != prediction_char) or (previous_char is None)) :   
-            
-            time_current_char = time.time()
-            if (time_current_char - time_previous_char_first) > timeWaitForNewChar:
-                previous_char = prediction_char
-                if (prediction_char == 'space') : prediction_char = ' ' #Check if the prediction_char is space
-                predicted_phrase.append(prediction_char)
-            
-        elif (previous_char == prediction_char) :
-            time_previous_char_first = time.time()
+            if (posibilities > '30') :
+                #Check if the predicted character is cdel that pops the last character
+                if (prediction_char == 'del') : 
+                    if (time.time() - time_del) > timeWaitDel:
+                        if (isDeleteChar == False) :
+                            deleteChar()
+                            isDeleteChar = True
+                            time_del = time.time()
+                        else : isDeleteChar = False
+                    previous_char = prediction_char
+                    time_previous_char_first = time.time()
+
+                # Check if the predicted character is different from the previous one
+                elif ((previous_char != prediction_char) or (previous_char is None)) :   
+                    isDeleteChar = False
+                    time_current_char = time.time()
+                    if (time_current_char - time_previous_char_first) > timeWaitForNewChar:
+                        previous_char = prediction_char
+                        if (prediction_char == 'space') : prediction_char = ' ' #Check if the prediction_char is space
+                        predicted_phrase.append(prediction_char)
+
+                    
+                elif (previous_char == prediction_char) and (previous_char != 'del') :
+                    time_previous_char_first = time.time()
+                    isDeleteChar = False
+        posibilities = posibilities + '%'
+        phrase = prediction_char + ' ' + str(posibilities)
 
         # Display the predicted character on the frame
-        cv2.putText(frame_rgb_flip, prediction_char, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        cv2.putText(frame_rgb_flip, phrase, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
         # Display the predicted phrase in a rectangle
-        print(predicted_phrase)
-
         showPredictionPhrase()
 
     else: 
         showPredictionPhrase()
         time_previous_char_first = time.time()
         time_out = time.time()
-        if (prediction_char == 'del') : deleteChar()
+        if (prediction_char == 'del') and (isDeleteChar == False) : 
+            deleteChar()
+            prediction_char = None
+            isDeleteChar = True
         else : 
             if (time_out - time_in) > time_clear:
-                print("Clear")
                 predicted_phrase.clear()
                 previous_char = None
+                isDeleteChar = False
         
+    frame_rgb_flip = cv2.cvtColor(frame_rgb_flip, cv2.COLOR_RGB2BGR)
     cv2.imshow("Frame", frame_rgb_flip)
 
 
