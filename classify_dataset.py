@@ -18,7 +18,7 @@ hands = mp_hands.Hands(static_image_mode=True, min_detection_confidence=0.5, max
 expected_features = 84
 
 previous_char = None
-time_clear = 4
+time_clear = 5
 timeWaitForNewChar = 1
 time_in = time.time()
 time_previous_char_first = 0
@@ -26,6 +26,9 @@ time_del = 0
 timeWaitDel = 1
 prediction_char = None
 isDeleteChar = False
+
+width = 800
+height = 600
 
 def hot_key_break():
     if cv2.waitKey(10) & 0xFF == 27:  # Press 'Esc' to exit
@@ -59,6 +62,7 @@ while True:
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     frame_rgb_flip = cv2.flip(frame_rgb, 1)
+    frame_rgb_flip = cv2.resize(frame_rgb_flip, (width, height))
     results = hands.process(frame_rgb_flip)
 
     if results.multi_hand_landmarks:
@@ -99,14 +103,13 @@ while True:
             prediction_char = prediction_char[0]
 
             max_prob_index = np.argmax(prediction_prob)
-            # print(f"Max Prob Index: {max_prob_index}")
             posibilities = prediction_prob[0][max_prob_index];
             posibilities = np.round(posibilities, 4)
-            # print(f"Max Prob: {posibilities}")
             posibilities = f"{posibilities * 100:.2f}"
-            # print(f"Posibilities: {posibilities}")
 
-            if (posibilities > '30') :
+            #Check if the predicted character has a probability greater than 30%
+            if (float(posibilities) > 30.00) : 
+
                 #Check if the predicted character is cdel that pops the last character
                 if (prediction_char == 'del') : 
                     if (time.time() - time_del) > timeWaitDel:
@@ -126,11 +129,11 @@ while True:
                         previous_char = prediction_char
                         if (prediction_char == 'space') : prediction_char = ' ' #Check if the prediction_char is space
                         predicted_phrase.append(prediction_char)
-
                     
                 elif (previous_char == prediction_char) and (previous_char != 'del') :
                     time_previous_char_first = time.time()
                     isDeleteChar = False
+
         posibilities = posibilities + '%'
         phrase = prediction_char + ' ' + str(posibilities)
 
@@ -155,7 +158,7 @@ while True:
                 isDeleteChar = False
         
     frame_rgb_flip = cv2.cvtColor(frame_rgb_flip, cv2.COLOR_RGB2BGR)
-    cv2.imshow("Frame", frame_rgb_flip)
+    cv2.imshow("Sign Language Dectection - GDSC Final Round", frame_rgb_flip)
 
 
     if hot_key_break(): break
